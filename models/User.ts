@@ -14,6 +14,12 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  Class: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Class",
+    },
+  ],
 });
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);
