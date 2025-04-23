@@ -1,3 +1,4 @@
+import Navbar from "@/components/Navbar";
 import { Toaster } from "react-hot-toast";
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
@@ -24,6 +25,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
           },
         }}
       />
+      <Navbar />
       {children}
     </>
   );

@@ -40,7 +40,7 @@ export default function RegisterPage() {
   
 
   return (
-    <div className="gradient-background flex items-center justify-center h-screen w-full">
+    <div className="gradient-background flex items-center justify-center h-[calc(100vh-4.6rem)] w-full">
       <div className="bg-black bg-opacity-75 text-white p-8 rounded-xl shadow-lg flex flex-col gap-4 w-full max-w-md">
         <h1 className="font-roboto text-2xl font-bold text-center hover:scale-105 transition">
           REGISTER
