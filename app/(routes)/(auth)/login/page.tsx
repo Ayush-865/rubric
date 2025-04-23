@@ -16,10 +16,35 @@ export default function LoginPage() {
     });
   };
 
-  const handleLogin = () => {
-    // TODO: Add login logic
-    console.log("Logging in with", credentials);
+
+  const handleLogin = async () => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(credentials),
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        alert(data.error);
+        return;
+      }
+  
+      // Store token, redirect, or update state
+      localStorage.setItem("token", data.token);
+      console.log("Login successful", data);
+      // Optionally redirect
+      // router.push("/dashboard");
+    } catch (error) {
+      console.error("Login failed", error);
+      alert("Something went wrong.");
+    }
   };
+  
 
   return (
     <div className="gradient-background flex items-center justify-center h-[calc(100vh-4.6rem)]">
