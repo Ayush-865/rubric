@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import {
   BookOpen,
@@ -29,68 +29,28 @@ import { ClassInfo } from "../types/types";
 
 const Dashboard = () => {
   const [open, setOpen] = React.useState(false);
+  const [classes, setClasses] = useState<ClassInfo[]>([]); // Fetch classes dynamically
   const [hasClasses, setHasClasses] = React.useState(true); // Toggle to demonstrate empty state
 
-  // Placeholder data for demonstration
-  const classes: ClassInfo[] = [
-    {
-      id: 1,
-      courseName: "Web Development",
-      courseCode: "CS301",
-      year: "T. Y. B. Tech",
-      semester: "V",
-      batch: "A",
-      department: "Computer Engineering",
-      academicYear: "2024-2025",
-      facultyName: "Dr. Sarah Johnson",
-      indicators: [
-        "Knowledge",
-        "Demonstration",
-        "Strategy",
-        "Interpret/Develop",
-        "Attitude towards learning",
-      ],
-      students: 42,
-    },
-    {
-      id: 2,
-      courseName: "Database Management",
-      courseCode: "CS302",
-      year: "T. Y. B. Tech",
-      semester: "V",
-      batch: "B",
-      department: "Information Technology",
-      academicYear: "2024-2025",
-      facultyName: "Prof. Michael Chen",
-      indicators: [
-        "Knowledge",
-        "Describe",
-        "Demonstration",
-        "Strategy",
-        "Non-verbal communication skills",
-      ],
-      students: 38,
-    },
-    {
-      id: 3,
-      courseName: "Machine Learning",
-      courseCode: "CS401",
-      year: "F. Y. B. Tech",
-      semester: "VII",
-      batch: "A",
-      department: "Artificial Intelligence and Machine Learning",
-      academicYear: "2024-2025",
-      facultyName: "Dr. Emily Rodriguez",
-      indicators: [
-        "Knowledge",
-        "Describe",
-        "Strategy",
-        "Interpret/Develop",
-        "Attitude towards learning",
-      ],
-      students: 35,
-    },
-  ];
+  // Fetch classes from the backend
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const res = await fetch("/api/classes");
+        if (!res.ok) {
+          throw new Error("Failed to fetch classes");
+        }
+        const data = await res.json();
+        setClasses(data);
+        setHasClasses(data.length > 0); // Update hasClasses based on fetched data
+      } catch (error) {
+        console.error("Error fetching classes:", error);
+        setHasClasses(false); // Handle empty state if fetch fails
+      }
+    };
+
+    fetchClasses();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">

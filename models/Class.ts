@@ -1,41 +1,10 @@
 import mongoose from "mongoose";
 
+
 const PerformanceIndicatorSchema = new mongoose.Schema({
-  CO1: {
-    type: [Number],
-    default: Array(10).fill(0), // Optional default
-    status:false
-  },
-  CO2: {
-    type: [Number],
-    default: Array(10).fill(0),
-    status:false
-  },
-  CO3: {
-    type: [Number],
-    default: Array(10).fill(0),
-    status:false
-  },
-  CO4: {
-    type: [Number],
-    default: Array(10).fill(0),
-    status:false
-  },
-  CO5: {
-    type: [Number],
-    default: Array(10).fill(0),
-    status:false
-  },
-  CO6: {
-    type: [Number],
-    default: Array(10).fill(0),
-    status:false
-  },
-  CO7: {
-    type: [Number],
-    default: Array(10).fill(0),
-    status:false
-  },
+  label: String, // e.g., "Knowledge"
+  scores: [Number],
+  status: Boolean,
 });
 
 
@@ -54,6 +23,7 @@ const ClassSchema = new mongoose.Schema({
   department: String,
   batch: String,
   facultyName: String,
+  indicator:[String],
   performanceIndicators: [PerformanceIndicatorSchema],
   total: Number,
   remarks: String,

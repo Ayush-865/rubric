@@ -28,12 +28,67 @@ import {
 } from "@/components/ui/input-otp";
 import { PerformanceIndicator } from "../types/types";
 
+
+
+
 const CreateClass = () => {
   const [step, setStep] = React.useState(1);
   const totalSteps = 3;
   const [selectedIndicators, setSelectedIndicators] = React.useState<string[]>(
     []
   );
+  const handleSubmit = async () => {
+    try {
+      // Collect form data
+      const classData = {
+        courseName: (document.getElementById("courseName") as HTMLInputElement)?.value,
+        courseCode: (document.getElementById("courseCode") as HTMLInputElement)?.value,
+        year: document.querySelector("#year .select-value")?.textContent,
+        semester: document.querySelector("#semester .select-value")?.textContent,
+        batch: (document.getElementById("batch") as HTMLInputElement)?.value,
+        department: document.querySelector("#department .select-value")?.textContent,
+        academicYear: (document.getElementById("academicYear") as HTMLInputElement)?.value,
+        facultyName: (document.getElementById("facultyName") as HTMLInputElement)?.value,
+        indicators: selectedIndicators, // Use the selected indicators from state
+      };
+  
+      // Validate required fields
+      if (
+        !classData.courseName ||
+        !classData.courseCode ||
+        !classData.year ||
+        !classData.semester ||
+        !classData.batch ||
+        !classData.department ||
+        !classData.academicYear ||
+        !classData.facultyName ||
+        classData.indicators.length !== 5
+      ) {
+        alert("Please fill in all required fields and select exactly 5 indicators.");
+        return;
+      }
+  
+      // Send data to the backend API
+      const response = await fetch("/api/classes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(classData),
+      });
+  
+      if (response.ok) {
+        alert("Class created successfully!");
+        // Optionally, close the dialog or reset the form
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to create class: ${errorData.error}`);
+      }
+    } catch (error) {
+      console.error("Error creating class:", error);
+      alert("An error occurred while creating the class. Please try again.");
+    }
+  };
 
   // Department list in alphabetical order
   const departments = [
@@ -46,6 +101,41 @@ const CreateClass = () => {
     "Information Technology",
     "Mechanical Engineering",
   ];
+
+  const [csvFile, setCsvFile] = React.useState<File | null>(null);
+
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+    setCsvFile(e.target.files[0]);
+  }
+};
+
+const handleUploadCSV = async () => {
+  if (!csvFile) {
+    alert("Please select a CSV file.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", csvFile);
+
+  try {
+    const response = await fetch("/api/students", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (response.ok) {
+      alert("Students uploaded successfully!");
+    } else {
+      const errorData = await response.json();
+      alert(`Failed to upload students: ${errorData.error}`);
+    }
+  } catch (error) {
+    console.error("Error uploading CSV:", error);
+    alert("An error occurred while uploading the CSV. Please try again.");
+  }
+};
 
   // Performance indicators
   const performanceIndicators: PerformanceIndicator[] = [
@@ -425,29 +515,47 @@ const CreateClass = () => {
 
       {/* Step 3: Add Students */}
       {step === 3 && (
-        <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 text-center space-y-4">
-            <div className="mx-auto bg-blue-900/30 rounded-full p-3 w-14 h-14 flex items-center justify-center">
-              <Upload className="h-6 w-6 text-blue-300" />
-            </div>
-            <div>
-              <h3 className="font-medium text-lg text-gray-200 font-roboto">
-                Upload Student CSV
-              </h3>
-              <p className="text-sm text-gray-400 font-roboto mt-1">
-                CSV should include Name, SAP ID, and Roll Number for each
-                student
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              className="border-blue-800 bg-blue-900/30 text-blue-300 hover:bg-blue-900/30 hover:text-blue-300 font-roboto"
-            >
-              Choose CSV File
-            </Button>
-          </div>
-        </div>
+  <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+    <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 text-center space-y-4">
+      <div className="mx-auto bg-blue-900/30 rounded-full p-3 w-14 h-14 flex items-center justify-center">
+        <Upload className="h-6 w-6 text-blue-300" />
+      </div>
+      <div>
+        <h3 className="font-medium text-lg text-gray-200 font-roboto">
+          Upload Student CSV
+        </h3>
+        <p className="text-sm text-gray-400 font-roboto mt-1">
+          CSV should include Name, SAP ID, and Roll Number for each student
+        </p>
+      </div>
+      <input
+        type="file"
+        accept=".csv"
+        onChange={handleFileChange}
+        className="hidden"
+        id="csvUpload"
+      />
+      <label
+        htmlFor="csvUpload"
+        className="cursor-pointer border-blue-800 bg-blue-900/30 text-blue-300 hover:bg-blue-900/30 hover:text-blue-300 font-roboto px-4 py-2 rounded-md"
+      >
+        Choose CSV File
+      </label>
+      {csvFile && (
+        <p className="text-sm text-gray-400 font-roboto mt-2">
+          Selected File: {csvFile.name}
+        </p>
       )}
+      <Button
+        variant="outline"
+        className="border-blue-800 bg-blue-900/30 text-blue-300 hover:bg-blue-900/30 hover:text-blue-300 font-roboto"
+        onClick={handleUploadCSV}
+      >
+        Upload CSV
+      </Button>
+    </div>
+  </div>
+)}
 
       <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-3 sm:gap-0 border-t border-gray-800 pt-4 mt-4">
         <div>
@@ -473,13 +581,11 @@ const CreateClass = () => {
             </Button>
           ) : (
             <Button
-              className="bg-blue-700 hover:bg-blue-600 font-roboto w-full sm:w-auto"
-              onClick={() => {
-                /* Note: setOpen is not available here; it’s in Dashboard */
-              }}
-            >
-              Create Class
-            </Button>
+            className="bg-blue-700 hover:bg-blue-600 font-roboto w-full sm:w-auto"
+            onClick={handleSubmit} // Call the handleSubmit function
+          >
+            Create Class
+          </Button>
           )}
         </div>
       </DialogFooter>
