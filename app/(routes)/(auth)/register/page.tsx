@@ -17,10 +17,27 @@ export default function RegisterPage() {
     });
   };
 
-  const handleRegister = () => {
-    // TODO: Add register logic
-    console.log("Registering", credentials);
+  const handleRegister = async () => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(credentials),
+      });
+  
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Something went wrong");
+  
+      console.log("Registration successful", data);
+      // Redirect to login or dashboard if needed
+    } catch (error: any) {
+      console.error("Registration failed", error.message);
+    }
+    
   };
+  
 
   return (
     <div className="gradient-background flex items-center justify-center h-screen w-full">
