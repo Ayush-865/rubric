@@ -1,7 +1,10 @@
 "use client";
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { RegisterCredentials } from "@/types/types";
+import toast from "react-hot-toast";
+import { useAuth } from "@/providers/Providers";
 
 export default function RegisterPage() {
   const [credentials, setCredentials] = useState<RegisterCredentials>({
@@ -9,6 +12,8 @@ export default function RegisterPage() {
     email: "",
     password: "",
   });
+  const { setIsAuthenticated } = useAuth(); // Access the global state updater
+  const router = useRouter(); // For navigation
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCredentials({
@@ -26,18 +31,22 @@ export default function RegisterPage() {
         },
         body: JSON.stringify(credentials),
       });
-  
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Something went wrong");
-  
-      console.log("Registration successful", data);
-      // Redirect to login or dashboard if needed
+
+      // Save token and update global state
+      localStorage.setItem("token", data.token);
+      setIsAuthenticated(true); // Update the global state
+      toast.success("Registration successful");
+
+      // Redirect to dashboard or login
+      router.push("/dashboard");
     } catch (error: any) {
       console.error("Registration failed", error.message);
+      toast.error(error.message || "Registration failed. Please try again.");
     }
-    
   };
-  
 
   return (
     <div className="gradient-background flex items-center justify-center h-[calc(100vh-4.6rem)] w-full">

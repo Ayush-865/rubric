@@ -1,33 +1,38 @@
+"use client";
+
+import React, { useState, createContext, useContext } from "react";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "react-hot-toast";
 
+// Create a context for authentication
+const AuthContext = createContext({
+  isAuthenticated: false,
+  setIsAuthenticated: (auth: boolean) => {},
+});
+
+export const useAuth = () => useContext(AuthContext);
+
 const Providers = ({ children }: { children: React.ReactNode }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setIsAuthenticated(false);
+    console.log("Logged out successfully");
+  };
+
   return (
-    <>
+    <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated }}>
       <Toaster
         position="top-center"
         reverseOrder={false}
-        gutter={8}
-        containerClassName=""
-        containerStyle={{}}
         toastOptions={{
-          // Define default options
-          className: "",
-          duration: 5000,
-          style: {
-            background: "#363636",
-            color: "#fff",
-          },
-
-          // Default options for specific types
-          success: {
-            duration: 3000,
-          },
+          style: { background: "#363636", color: "#fff" },
         }}
       />
-      <Navbar />
+      <Navbar isAuthenticated={isAuthenticated} onLogout={handleLogout} />
       {children}
-    </>
+    </AuthContext.Provider>
   );
 };
 

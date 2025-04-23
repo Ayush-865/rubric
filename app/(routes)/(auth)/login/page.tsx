@@ -1,50 +1,40 @@
 "use client";
-import { LoginCredentials } from "@/types/types";
+
 import React, { useState } from "react";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
+import { useAuth } from "@/providers/Providers";
 
 export default function LoginPage() {
-  const [credentials, setCredentials] = useState<LoginCredentials>({
-    email: "",
-    password: "",
-  });
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const { setIsAuthenticated } = useAuth(); // Access the global state updater
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCredentials({
-      ...credentials,
-      [e.target.name]: e.target.value,
-    });
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
   };
-
 
   const handleLogin = async () => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
       });
-  
+
       const data = await res.json();
-  
       if (!res.ok) {
-        alert(data.error);
+        toast.error(data.error || "Something went wrong");
         return;
       }
-  
-      // Store token, redirect, or update state
+
       localStorage.setItem("token", data.token);
-      console.log("Login successful", data);
-      // Optionally redirect
-      // router.push("/dashboard");
+      setIsAuthenticated(true); // Update the global state
+      toast.success("Login successful");
     } catch (error) {
       console.error("Login failed", error);
-      alert("Something went wrong.");
+      toast.error("Login failed. Please try again.");
     }
   };
-  
 
   return (
     <div className="gradient-background flex items-center justify-center h-[calc(100vh-4.6rem)]">
