@@ -1,35 +1,60 @@
 import mongoose from "mongoose";
 
-
 const PerformanceIndicatorSchema = new mongoose.Schema({
   label: String, // e.g., "Knowledge"
   scores: [Number],
   status: Boolean,
 });
 
-
 const ClassSchema = new mongoose.Schema({
-  student: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Student", // Reference to the Student model
+  courseName: {
+    type: String,
     required: true,
   },
-  subject: {
-    code: String,
-    name: String,
+  courseCode: {
+    type: String,
+    required: true,
   },
-  academicYear: String,
-  semester: String,
-  department: String,
-  batch: String,
-  facultyName: String,
-  indicator:[String],
-  performanceIndicators: [PerformanceIndicatorSchema],
-  total: Number,
-  remarks: String,
+  year: {
+    type: String,
+    required: true,
+  },
+  semester: {
+    type: String,
+    required: true,
+  },
+  batch: {
+    type: String,
+    required: true,
+  },
+  department: {
+    type: String,
+    required: true,
+  },
+  academicYear: {
+    type: String,
+    required: true,
+  },
+  facultyName: {
+    type: String,
+    required: true,
+  },
+  indicators: {
+    type: [String],
+    required: true,
+  },
+  students: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Student",
+    },
+  ],
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 // Indexing for faster queries
-ClassSchema.index({ student: 1, subject: 1, academicYear: 1, semester: 1, group: 1, experiment: 1 });
+ClassSchema.index({ courseCode: 1, academicYear: 1, semester: 1, batch: 1 });
 
 export default mongoose.models.Class || mongoose.model("Class", ClassSchema);
-

@@ -47,39 +47,55 @@ interface Student {
 
 interface ClassInfo {
   id: string;
-  name: string;
-  code: string;
+  courseName: string;
+  courseCode: string;
   facultyName: string;
   department: string;
   batch: string;
   year: string;
   semester: string;
   academicYear: string;
-  totalStudents: number;
-  performanceIndicators: string[];
+  indicators: string[];
+  students: Array<{
+    _id: string;
+    name: string;
+    sapId: string;
+    rollNo: string;
+    batch: string;
+  }>;
 }
 
 const ClassDetailPage = ({ params }: { params: { id: string } }) => {
-  // Mock class info
-  const [classInfo, setClassInfo] = useState<ClassInfo>({
-    id: params.id,
-    name: "Web Development",
-    code: "CS301",
-    facultyName: "Dr. John Doe",
-    department: "Computer Science and Engineering (Data Science)",
-    batch: "A",
-    year: "T. Y. B. Tech",
-    semester: "V",
-    academicYear: "2024-2025",
-    totalStudents: 60,
-    performanceIndicators: [
-      "Knowledge",
-      "Describe",
-      "Demonstration",
-      "Strategy (Analyse & / or Evaluate)",
-      "Interpret / Develop",
-    ],
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Updated class info state with correct structure
+  const [classInfo, setClassInfo] = useState<ClassInfo | null>(null);
+
+  // Fetch class data from API
+  useEffect(() => {
+    const fetchClassData = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/classes/${params.id}`);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to fetch class data");
+        }
+
+        const data = await response.json();
+        setClassInfo(data);
+      } catch (err: any) {
+        console.error("Error fetching class data:", err);
+        setError(err.message || "Failed to load class data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchClassData();
+  }, [params.id]);
 
   // Determine number of experiments dynamically - can be changed based on your data source
   const [numExperiments, setNumExperiments] = useState(10);
@@ -88,37 +104,38 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
   const generateEmptyStudents = (count: number) => {
     const students: Student[] = [];
 
-    for (let i = 1; i <= count; i++) {
-      const rollNo = `CS${i.toString().padStart(3, "0")}`;
-      const experiments: { [key: string]: { [key: string]: number | null } } =
-        {};
-      const experimentTotals: { [key: string]: number | null } = {};
+    if (!classInfo) return students;
 
-      // Create empty experiment scores for each indicator
-      for (let j = 1; j <= numExperiments; j++) {
-        const expName = `Exp${j}`;
-        experiments[expName] = {};
+    // Use real student data instead of generating fake data
+    return classInfo.students
+      .map((student, index) => {
+        const experiments: { [key: string]: { [key: string]: number | null } } =
+          {};
+        const experimentTotals: { [key: string]: number | null } = {};
 
-        // For each performance indicator
-        classInfo.performanceIndicators.forEach((indicator) => {
-          experiments[expName][indicator] = null;
-        });
+        // Create empty experiment scores for each indicator
+        for (let j = 1; j <= numExperiments; j++) {
+          const expName = `Exp${j}`;
+          experiments[expName] = {};
 
-        experimentTotals[expName] = null;
-      }
+          // For each performance indicator
+          classInfo.indicators.forEach((indicator) => {
+            experiments[expName][indicator] = null;
+          });
 
-      students.push({
-        id: `student-${i}`,
-        name: `Student ${i}`,
-        rollNo,
-        experiments,
-        experimentTotals,
-        totalMarks: null,
-      });
-    }
+          experimentTotals[expName] = null;
+        }
 
-    // Sort by roll number
-    return students.sort((a, b) => a.rollNo.localeCompare(b.rollNo));
+        return {
+          id: student._id,
+          name: student.name,
+          rollNo: student.rollNo,
+          experiments,
+          experimentTotals,
+          totalMarks: null,
+        };
+      })
+      .sort((a, b) => a.rollNo.localeCompare(b.rollNo));
   };
 
   const [students, setStudents] = useState<Student[]>([]);
@@ -135,11 +152,48 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Generate empty data on initial load
-    const emptyStudents = generateEmptyStudents(15);
-    setStudents(emptyStudents);
-    setFilteredStudents(emptyStudents);
-  }, []);
+    // Generate student data once class info is loaded
+    if (classInfo) {
+      const generatedStudents = generateEmptyStudents(
+        classInfo.students.length
+      );
+      setStudents(generatedStudents);
+      setFilteredStudents(generatedStudents);
+    }
+  }, [classInfo]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-950">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-blue-300">Loading class data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error || !classInfo) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-950">
+        <div className="text-center max-w-md p-6 bg-gray-900 rounded-lg border border-red-900">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-white mb-2">
+            Failed to Load Class
+          </h2>
+          <p className="text-gray-400 mb-4">{error || "Class not found"}</p>
+          <Button
+            onClick={() => (window.location.href = "/")}
+            variant="default"
+          >
+            Return to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     // Filter students based on search term and filter selection
@@ -423,7 +477,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
     if (newTotal === null) return student;
 
     const updatedStudent = { ...student };
-    const currentIndicators = classInfo.performanceIndicators.map(
+    const currentIndicators = classInfo.indicators.map(
       (ind) => updatedStudent.experiments[experimentName][ind]
     );
 
@@ -435,7 +489,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
     );
 
     // Update experiment indicator values
-    classInfo.performanceIndicators.forEach((indicator, idx) => {
+    classInfo.indicators.forEach((indicator, idx) => {
       updatedStudent.experiments[experimentName][indicator] =
         newIndicatorValues[idx];
     });
@@ -518,105 +572,131 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
   const navigateCell = (direction: string) => {
     if (!editingCell) return;
 
-    const { studentId, field, indicator } = editingCell;
+    const { studentId: currentStudentId, field, indicator } = editingCell;
+    const studentIndex = students.findIndex((s) => s.id === currentStudentId);
 
-    // First save current value
-    saveCurrentValue();
-
-    // Find indices for current position
-    const studentIndex = students.findIndex((s) => s.id === studentId);
-    if (studentIndex === -1) return;
-
-    const isIndicatorRow = Boolean(indicator);
-    const experimentIndex = field.startsWith("Exp")
-      ? parseInt(field.replace("Exp", "")) - 1
-      : field === "totalMarks"
-      ? numExperiments
-      : -1;
-
-    let nextStudentIndex = studentIndex;
+    let nextStudentId = currentStudentId;
+    let nextField = field;
     let nextIndicator = indicator;
-    let nextExperimentIndex = experimentIndex;
 
-    // Calculate next position based on direction
+    const isExperimentTotal = field.startsWith("total_");
+    const isGrandTotal = field === "grandTotal";
+    const isIndicatorRow = !!indicator;
+
+    // Extract experiment ID if it's an indicator or experiment total
+    const experimentId = isIndicatorRow
+      ? field
+      : isExperimentTotal
+      ? field.replace("total_", "")
+      : "";
+
     switch (direction) {
+      case "ArrowLeft":
+        if (isGrandTotal) {
+          // Move from grand total to last experiment total
+          const lastExpName = `Exp${numExperiments}`;
+          nextField = `total_${lastExpName}`;
+        } else if (isExperimentTotal) {
+          const currentExpNumber = parseInt(field.replace("total_Exp", ""));
+          if (currentExpNumber > 1) {
+            // Move to previous experiment total
+            nextField = `total_Exp${currentExpNumber - 1}`;
+          }
+        } else if (isIndicatorRow) {
+          // Can't navigate left from indicator rows
+        } else {
+          const currentExpNumber = parseInt(field.replace("Exp", ""));
+          if (currentExpNumber > 1) {
+            // Move to previous experiment
+            nextField = `Exp${currentExpNumber - 1}`;
+          }
+        }
+        break;
+
+      case "ArrowRight":
+        if (isGrandTotal) {
+          // Can't navigate right from grand total
+        } else if (isExperimentTotal) {
+          const currentExpNumber = parseInt(field.replace("total_Exp", ""));
+          if (currentExpNumber < numExperiments) {
+            // Move to next experiment total
+            nextField = `total_Exp${currentExpNumber + 1}`;
+          } else {
+            // Move from last experiment total to grand total
+            nextField = "grandTotal";
+          }
+        } else if (isIndicatorRow) {
+          // Can't navigate right from indicator rows
+        } else {
+          const currentExpNumber = parseInt(field.replace("Exp", ""));
+          if (currentExpNumber < numExperiments) {
+            // Move to next experiment
+            nextField = `Exp${currentExpNumber + 1}`;
+          } else {
+            // Move to grand total
+            nextField = "grandTotal";
+          }
+        }
+        break;
+
       case "ArrowUp":
         if (isIndicatorRow) {
-          const indicatorIndex = classInfo.performanceIndicators.indexOf(
-            indicator!
-          );
-          if (indicatorIndex > 0) {
+          const indicatorIdx = classInfo!.indicators.indexOf(indicator!);
+          if (indicatorIdx > 0) {
             // Move to previous indicator in the same experiment
-            nextIndicator = classInfo.performanceIndicators[indicatorIndex - 1];
+            nextIndicator = classInfo!.indicators[indicatorIdx - 1];
           } else {
-            // Move to the student's main row
+            // Move to the experiment row
             nextIndicator = undefined;
           }
         } else if (studentIndex > 0) {
-          // Move to previous student's main row
-          nextStudentIndex = studentIndex - 1;
+          // Move to previous student
+          nextStudentId = students[studentIndex - 1].id;
         }
         break;
 
       case "ArrowDown":
         if (isIndicatorRow) {
-          const indicatorIndex = classInfo.performanceIndicators.indexOf(
-            indicator!
-          );
-          if (indicatorIndex < classInfo.performanceIndicators.length - 1) {
+          const indicatorIdx = classInfo!.indicators.indexOf(indicator!);
+          if (indicatorIdx < classInfo!.indicators.length - 1) {
             // Move to next indicator in the same experiment
-            nextIndicator = classInfo.performanceIndicators[indicatorIndex + 1];
+            nextIndicator = classInfo!.indicators[indicatorIdx + 1];
           } else if (studentIndex < students.length - 1) {
-            // Move to next student's main row
-            nextStudentIndex = studentIndex + 1;
+            // Move to next student's experiment row
+            nextStudentId = students[studentIndex + 1].id;
             nextIndicator = undefined;
           }
         } else if (studentIndex < students.length - 1) {
-          // Skip indicators and move directly to next student's main row
-          nextStudentIndex = studentIndex + 1;
+          // Move to next student
+          nextStudentId = students[studentIndex + 1].id;
         }
         break;
 
-      case "ArrowLeft":
-        if (nextExperimentIndex > 0) {
-          nextExperimentIndex--;
+      case "Enter":
+        if (!isIndicatorRow) {
+          // Expand to show indicators
+          nextIndicator = classInfo!.indicators[0];
+        } else {
+          const indicatorIdx = classInfo!.indicators.indexOf(indicator!);
+          if (indicatorIdx < classInfo!.indicators.length - 1) {
+            // Move to next indicator
+            nextIndicator = classInfo!.indicators[indicatorIdx + 1];
+          } else {
+            // Move to next student
+            if (studentIndex < students.length - 1) {
+              nextStudentId = students[studentIndex + 1].id;
+              nextIndicator = undefined;
+            }
+          }
         }
         break;
-
-      case "ArrowRight":
-        if (nextExperimentIndex < numExperiments) {
-          nextExperimentIndex++;
-        }
-        break;
     }
 
-    // Get next field name
-    let nextField = "totalMarks";
-    if (nextExperimentIndex >= 0 && nextExperimentIndex < numExperiments) {
-      nextField = `Exp${nextExperimentIndex + 1}`;
-    }
+    // Save current value before navigating
+    saveCurrentValue();
 
-    // Set next editing cell
-    const nextStudentId = students[nextStudentIndex].id;
-    if (nextField === "totalMarks" && nextIndicator) {
-      // Don't edit total marks row for indicators
-      return;
-    }
-
-    // Contract previous student if moving to a different student
-    if (nextStudentId !== studentId) {
-      setExpandedStudent(null);
-    }
-
-    // Expand student if navigating to indicator
-    if (nextIndicator && expandedStudent !== nextStudentId) {
-      setExpandedStudent(nextStudentId);
-    }
-
-    // Set next editing cell after a short delay to allow DOM to update
-    setTimeout(() => {
-      startEdit(nextStudentId, nextField, nextIndicator);
-    }, 10);
+    // Start editing the next cell
+    startEdit(nextStudentId, nextField, nextIndicator);
   };
 
   // Save current value and exit edit mode
@@ -651,7 +731,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
         updatedStudent.experiments[expName][indicator] = validatedValue;
 
         // Recalculate experiment total
-        const indicatorValues = classInfo.performanceIndicators.map(
+        const indicatorValues = classInfo.indicators.map(
           (ind) => updatedStudent.experiments[expName][ind] || 0
         );
         const expTotal = Math.round(
@@ -800,9 +880,9 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
                 <div className="flex items-center flex-wrap gap-2">
                   <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-blue-400 mr-2" />
                   <h1 className="text-xl sm:text-2xl font-bold text-white">
-                    {classInfo.name}
+                    {classInfo.courseName}
                     <span className="text-blue-400 ml-2">
-                      ({classInfo.code})
+                      ({classInfo.courseCode})
                     </span>
                   </h1>
                 </div>
@@ -871,7 +951,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
                   <div className="flex gap-3 sm:gap-4">
                     <div>
                       <p className="text-lg sm:text-2xl font-bold text-white">
-                        {classInfo.totalStudents}
+                        {classInfo.students.length}
                       </p>
                       <p className="text-[10px] sm:text-xs text-gray-400">
                         Students
@@ -914,7 +994,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
                     </TooltipProvider>
                   </h3>
                   <div className="flex flex-wrap gap-1 sm:gap-1.5">
-                    {classInfo.performanceIndicators.map((indicator, index) => (
+                    {classInfo.indicators.map((indicator, index) => (
                       <Badge
                         key={index}
                         className="bg-blue-900/40 text-blue-300 hover:bg-blue-900/60 text-[10px] sm:text-xs py-0.5 sm:py-1"
@@ -1066,7 +1146,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
                   {/* Expanded Indicator Rows */}
                   {expandedStudent === student.id && (
                     <>
-                      {classInfo.performanceIndicators.map((indicator) => (
+                      {classInfo.indicators.map((indicator) => (
                         <tr
                           key={`${student.id}-${indicator}`}
                           className="bg-gray-900/40 border-b border-gray-800/50 text-[10px] sm:text-xs"

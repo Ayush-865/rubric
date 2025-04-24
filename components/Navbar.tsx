@@ -32,10 +32,7 @@ interface NavbarProps {
 
 const Navbar = ({
   logo = { url: "/", src: "/logo.png", alt: "DJSCE Logo", title: "DJSCE" },
-  menu = [
-    { title: "Dashboard", url: "/dashboard" },
-    { title: "About", url: "/about" },
-  ],
+  menu = [],
   auth = {
     login: { title: "Login", url: "/login" },
     signup: { title: "Sign up", url: "/register" },
@@ -86,12 +83,11 @@ const Navbar = ({
             <>
               <Button
                 asChild
-                variant="outline"
                 size="sm"
-                className="border-blue-700 hover:bg-blue-800 hover:border-blue-600 font-roboto text-white focus:text-white active:text-white"
+                className="bg-blue-700 hover:bg-blue-600 font-roboto text-white focus:text-white active:text-white"
               >
                 <Link href={auth.login.url}>
-                  <span className="group-hover:text-white">
+                  <span className="group-hover:text-white ">
                     {auth.login.title}
                   </span>
                 </Link>

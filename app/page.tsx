@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import {
   BookOpen,
   FilePlus,
@@ -28,6 +28,7 @@ import CreateClass from "@/components/CreateClass";
 import { ClassInfo } from "../types/types";
 
 const Dashboard = () => {
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [classes, setClasses] = useState<ClassInfo[]>([]); // Fetch classes dynamically
   const [hasClasses, setHasClasses] = React.useState(true); // Toggle to demonstrate empty state
@@ -52,8 +53,12 @@ const Dashboard = () => {
     fetchClasses();
   }, []);
 
+  const handleViewClass = (classId: string) => {
+    router.push(`/class/${classId}`);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
+    <div className="min-h-[calc(100vh-4.6rem)] bg-gray-950 text-gray-100 flex flex-col">
       <main className="flex-1 container mx-auto py-4 sm:py-8 px-3 sm:px-4">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold font-roboto text-blue-200">
@@ -141,6 +146,7 @@ const Dashboard = () => {
                       variant="ghost"
                       size="sm"
                       className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 font-roboto"
+                      onClick={() => handleViewClass(String(classItem.id))}
                     >
                       View Class
                     </Button>
