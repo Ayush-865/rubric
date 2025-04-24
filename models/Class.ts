@@ -31,5 +31,5 @@ const ClassSchema = new mongoose.Schema({
 // Indexing for faster queries
 ClassSchema.index({ student: 1, subject: 1, academicYear: 1, semester: 1, group: 1, experiment: 1 });
 
-export default mongoose.models.RubricClass || mongoose.model("RubricEval", ClassSchema);
+export default mongoose.models.Class || mongoose.model("Class", ClassSchema);
 
