@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search,
   ChevronDown,
@@ -29,6 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Share from "./_components/Share";
+import { toast } from "react-hot-toast";
 
 // Constants
 const MAX_INDICATOR_MARKS = 5; // Each indicator can have max 5 marks
@@ -65,12 +66,36 @@ interface ClassInfo {
   }>;
 }
 
+// Add interface for mark data from API
+interface MarkData {
+  studentId: string;
+  experiments: { [key: string]: { [key: string]: number } };
+  experimentTotals: { [key: string]: number };
+  totalMarks: number | null;
+}
+
 const ClassDetailPage = ({ params }: { params: { id: string } }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Updated class info state with correct structure
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null);
+
+  // Determine number of experiments dynamically - can be changed based on your data source
+  const [numExperiments, setNumExperiments] = useState(10);
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [editingCell, setEditingCell] = useState<{
+    studentId: string;
+    field: string;
+    indicator?: string;
+  } | null>(null);
+  const [currentValue, setCurrentValue] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Fetch class data from API
   useEffect(() => {
@@ -97,106 +122,140 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
     fetchClassData();
   }, [params.id]);
 
-  // Determine number of experiments dynamically - can be changed based on your data source
-  const [numExperiments, setNumExperiments] = useState(10);
+  // Generate empty student data function
+  const generateEmptyStudents = useCallback(
+    (count: number) => {
+      if (!classInfo) return [];
 
-  // Generate empty student data
-  const generateEmptyStudents = (count: number) => {
-    const students: Student[] = [];
+      // Use real student data instead of generating fake data
+      return classInfo.students
+        .map((student) => {
+          const experiments: {
+            [key: string]: { [key: string]: number | null };
+          } = {};
+          const experimentTotals: { [key: string]: number | null } = {};
 
-    if (!classInfo) return students;
+          // Create empty experiment scores for each indicator
+          for (let j = 1; j <= numExperiments; j++) {
+            const expName = `Exp${j}`;
+            experiments[expName] = {};
 
-    // Use real student data instead of generating fake data
-    return classInfo.students
-      .map((student, index) => {
-        const experiments: { [key: string]: { [key: string]: number | null } } =
-          {};
-        const experimentTotals: { [key: string]: number | null } = {};
+            // For each performance indicator
+            if (classInfo.indicators) {
+              classInfo.indicators.forEach((indicator) => {
+                experiments[expName][indicator] = null;
+              });
+            }
 
-        // Create empty experiment scores for each indicator
-        for (let j = 1; j <= numExperiments; j++) {
-          const expName = `Exp${j}`;
-          experiments[expName] = {};
+            experimentTotals[expName] = null;
+          }
 
-          // For each performance indicator
-          classInfo.indicators.forEach((indicator) => {
-            experiments[expName][indicator] = null;
-          });
+          return {
+            id: student._id,
+            name: student.name,
+            rollNo: student.rollNo,
+            experiments,
+            experimentTotals,
+            totalMarks: null,
+          };
+        })
+        .sort((a, b) => a.rollNo.localeCompare(b.rollNo));
+    },
+    [classInfo, numExperiments]
+  );
 
-          experimentTotals[expName] = null;
-        }
-
-        return {
-          id: student._id,
-          name: student.name,
-          rollNo: student.rollNo,
-          experiments,
-          experimentTotals,
-          totalMarks: null,
-        };
-      })
-      .sort((a, b) => a.rollNo.localeCompare(b.rollNo));
-  };
-
-  const [students, setStudents] = useState<Student[]>([]);
-  const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
-  const [editingCell, setEditingCell] = useState<{
-    studentId: string;
-    field: string;
-    indicator?: string;
-  } | null>(null);
-  const [currentValue, setCurrentValue] = useState<string>("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
+  // Generate student data once class info is loaded and fetch existing marks
   useEffect(() => {
-    // Generate student data once class info is loaded
     if (classInfo) {
+      // First generate empty student data with default structure
       const generatedStudents = generateEmptyStudents(
         classInfo.students.length
       );
       setStudents(generatedStudents);
       setFilteredStudents(generatedStudents);
+
+      // Then fetch any saved marks from the database
+      const fetchMarks = async () => {
+        try {
+          const response = await fetch(`/api/marks?classId=${classInfo.id}`);
+
+          if (!response.ok) {
+            console.error("Failed to fetch marks:", await response.json());
+            return;
+          }
+
+          const marksData: MarkData[] = await response.json();
+
+          if (marksData && marksData.length > 0) {
+            // Create a map for quick lookup of marks by student ID
+            const marksMap = new Map();
+            marksData.forEach((mark) => {
+              marksMap.set(mark.studentId, mark);
+            });
+
+            // Update student data with saved marks
+            const updatedStudents = generatedStudents.map((student) => {
+              const savedMark = marksMap.get(student.id);
+
+              if (!savedMark) return student;
+
+              // Deep clone the student object
+              const updatedStudent = { ...student };
+
+              // Transform map data back to our format
+              // Handle experiments data
+              if (savedMark.experiments) {
+                for (const [expKey, indicators] of Object.entries(
+                  savedMark.experiments
+                )) {
+                  if (!updatedStudent.experiments[expKey]) {
+                    updatedStudent.experiments[expKey] = {};
+                  }
+
+                  for (const [indicator, value] of Object.entries(
+                    indicators as Record<string, number>
+                  )) {
+                    updatedStudent.experiments[expKey][indicator] = value;
+                  }
+                }
+              }
+
+              // Handle experiment totals
+              if (savedMark.experimentTotals) {
+                for (const [expKey, value] of Object.entries(
+                  savedMark.experimentTotals
+                )) {
+                  updatedStudent.experimentTotals[expKey] = value as number;
+                }
+              }
+
+              // Handle total marks
+              if (
+                savedMark.totalMarks !== undefined &&
+                savedMark.totalMarks !== null
+              ) {
+                updatedStudent.totalMarks = savedMark.totalMarks;
+              }
+
+              return updatedStudent;
+            });
+
+            setStudents(updatedStudents);
+            setFilteredStudents(updatedStudents);
+          }
+        } catch (error) {
+          console.error("Error fetching marks:", error);
+        }
+      };
+
+      fetchMarks();
     }
-  }, [classInfo]);
+  }, [classInfo, generateEmptyStudents]);
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-950">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
-          <p className="text-blue-300">Loading class data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (error || !classInfo) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-950">
-        <div className="text-center max-w-md p-6 bg-gray-900 rounded-lg border border-red-900">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-white mb-2">
-            Failed to Load Class
-          </h2>
-          <p className="text-gray-400 mb-4">{error || "Class not found"}</p>
-          <Button
-            onClick={() => (window.location.href = "/")}
-            variant="default"
-          >
-            Return to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
+  // Filter students based on search term and filter selection
   useEffect(() => {
-    // Filter students based on search term and filter selection
+    if (!students.length) return;
+
     const filtered = students.filter((student) => {
       const matchesSearch =
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -249,8 +308,8 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
     setFilteredStudents(filtered);
   }, [searchTerm, selectedFilter, students]);
 
+  // Focus on input when editing starts
   useEffect(() => {
-    // Focus on input when editing starts
     if (editingCell && inputRef.current) {
       inputRef.current.focus();
     }
@@ -477,7 +536,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
     if (newTotal === null) return student;
 
     const updatedStudent = { ...student };
-    const currentIndicators = classInfo.indicators.map(
+    const currentIndicators = classInfo!.indicators.map(
       (ind) => updatedStudent.experiments[experimentName][ind]
     );
 
@@ -489,7 +548,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
     );
 
     // Update experiment indicator values
-    classInfo.indicators.forEach((indicator, idx) => {
+    classInfo!.indicators.forEach((indicator, idx) => {
       updatedStudent.experiments[experimentName][indicator] =
         newIndicatorValues[idx];
     });
@@ -700,8 +759,8 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
   };
 
   // Save current value and exit edit mode
-  const saveCurrentValue = () => {
-    if (!editingCell) return;
+  const saveCurrentValue = async () => {
+    if (!editingCell || !classInfo) return;
 
     const { studentId, field, indicator } = editingCell;
 
@@ -731,7 +790,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
         updatedStudent.experiments[expName][indicator] = validatedValue;
 
         // Recalculate experiment total
-        const indicatorValues = classInfo.indicators.map(
+        const indicatorValues = classInfo!.indicators.map(
           (ind) => updatedStudent.experiments[expName][ind] || 0
         );
         const expTotal = Math.round(
@@ -743,11 +802,13 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
         updatedStudent.experimentTotals[expName] = validatedValue;
 
         // Auto-distribute to indicators if needed
-        updatedStudent = updateIndicatorsFromExperimentTotal(
-          updatedStudent,
-          expName,
-          validatedValue
-        );
+        if (validatedValue !== null) {
+          updatedStudent = updateIndicatorsFromExperimentTotal(
+            updatedStudent,
+            expName,
+            validatedValue
+          );
+        }
       }
 
       // Recalculate grand total based on experiment totals
@@ -765,16 +826,46 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
       updatedStudent.totalMarks = validatedValue;
 
       // Auto-distribute to experiments and indicators
-      updatedStudent = updateExperimentsFromGrandTotal(
-        updatedStudent,
-        validatedValue
-      );
+      if (validatedValue !== null) {
+        updatedStudent = updateExperimentsFromGrandTotal(
+          updatedStudent,
+          validatedValue
+        );
+      }
     }
 
-    // Update student in the list
+    // Update student in the local state
     const updatedStudents = [...students];
     updatedStudents[studentIndex] = updatedStudent;
     setStudents(updatedStudents);
+
+    // Save to database
+    try {
+      const response = await fetch("/api/marks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          classId: classInfo.id,
+          studentId,
+          marks: {
+            experiments: updatedStudent.experiments,
+            experimentTotals: updatedStudent.experimentTotals,
+            totalMarks: updatedStudent.totalMarks,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Failed to save marks:", errorData);
+        toast.error("Failed to save marks to the database");
+      }
+    } catch (error) {
+      console.error("Error saving marks:", error);
+      toast.error("Network error while saving marks");
+    }
 
     // Exit edit mode
     setEditingCell(null);
@@ -868,6 +959,38 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
       </td>
     );
   };
+
+  // Render appropriate UI based on loading/error states
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-950">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-blue-300">Loading class data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !classInfo) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-950">
+        <div className="text-center max-w-md p-6 bg-gray-900 rounded-lg border border-red-900">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-white mb-2">
+            Failed to Load Class
+          </h2>
+          <p className="text-gray-400 mb-4">{error || "Class not found"}</p>
+          <Button
+            onClick={() => (window.location.href = "/")}
+            variant="default"
+          >
+            Return to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-950 min-h-screen text-gray-100 p-2 sm:p-4 md:p-6 font-roboto">

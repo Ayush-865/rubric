@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const PerformanceIndicatorSchema = new mongoose.Schema({
-  label: String, // e.g., "Knowledge"
+  label: String,
   scores: [Number],
   status: Boolean,
 });

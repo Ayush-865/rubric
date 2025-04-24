@@ -25,31 +25,103 @@ export async function POST(req: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const jsonArray = await csv().fromString(buffer.toString());
+    const fileContent = buffer.toString();
 
-    interface CsvStudent {
-      Name: string;
-      "SAP ID": string;
-      "Roll Number": string;
-      Batch?: string;
+    // Validate that the CSV isn't empty
+    if (!fileContent.trim()) {
+      return NextResponse.json({ error: "CSV file is empty" }, { status: 400 });
     }
 
-    interface StudentData {
-      name: string;
-      sapId: string;
-      rollNo: string;
-      batch: string;
+    // Process CSV to JSON
+    let jsonArray;
+    try {
+      jsonArray = await csv().fromString(fileContent);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Invalid CSV format" },
+        { status: 400 }
+      );
     }
 
-    const students: StudentData[] = jsonArray.map((item: CsvStudent) => ({
-      name: item.Name,
-      sapId: item["SAP ID"],
-      rollNo: item["Roll Number"],
-      batch: item.Batch || classDoc.batch, // Use class batch if not specified
-    }));
+    // Validate the CSV has data
+    if (!jsonArray || jsonArray.length === 0) {
+      return NextResponse.json(
+        { error: "No student records found in CSV" },
+        { status: 400 }
+      );
+    }
+
+    // Get first row to check headers
+    const firstRow = jsonArray[0];
+    const headers = Object.keys(firstRow);
+
+    // Normalize header keys for case-insensitive matching
+    const normalizedHeaders: Record<string, string> = {};
+    headers.forEach((header) => {
+      normalizedHeaders[header.toLowerCase().replace(/\s+/g, "")] = header;
+    });
+
+    // Define required fields and their possible matches
+    const requiredFields = [
+      { field: "name", matches: ["name", "studentname", "fullname"] },
+      {
+        field: "sapId",
+        matches: ["sapid", "sap", "sapnumber", "sap id", "sapno"],
+      },
+      {
+        field: "rollNo",
+        matches: [
+          "rollno",
+          "roll",
+          "rollnumber",
+          "roll no",
+          "roll number",
+          "studentid",
+        ],
+      },
+    ];
+
+    // Map the actual CSV headers to our expected fields
+    const fieldMappings: Record<string, string> = {};
+
+    for (const { field, matches } of requiredFields) {
+      const matchedHeader = matches.find((match) =>
+        Object.keys(normalizedHeaders).includes(
+          match.toLowerCase().replace(/\s+/g, "")
+        )
+      );
+
+      if (matchedHeader) {
+        fieldMappings[field] =
+          normalizedHeaders[matchedHeader.toLowerCase().replace(/\s+/g, "")];
+      } else {
+        return NextResponse.json(
+          { error: `Missing required field in CSV: ${field}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Now map the CSV data to our expected format
+    const students = jsonArray.map((item) => {
+      const studentData = {
+        name: item[fieldMappings.name] || "",
+        sapId: item[fieldMappings.sapId] || "",
+        rollNo: item[fieldMappings.rollNo] || "",
+        batch: item[normalizedHeaders["batch"]] || classDoc.batch,
+      };
+
+      // Validate required fields
+      if (!studentData.name || !studentData.sapId || !studentData.rollNo) {
+        throw new Error(`Invalid student data: ${JSON.stringify(studentData)}`);
+      }
+
+      return studentData;
+    });
 
     // Array to store student IDs
     const studentIds = [];
+    const errors = [];
 
     // Insert students one by one to handle unique constraint errors better
     for (const studentData of students) {
@@ -64,20 +136,28 @@ export async function POST(req: Request) {
 
         // Add student ID to array
         studentIds.push(student._id);
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error processing student ${studentData.sapId}:`, error);
+        errors.push({
+          student: studentData,
+          error: error.message || "Unknown error",
+        });
         // Continue with next student
       }
     }
 
     // Update class with student IDs
-    await Class.findByIdAndUpdate(classId, {
-      $addToSet: { students: { $each: studentIds } },
-    });
+    if (studentIds.length > 0) {
+      await Class.findByIdAndUpdate(classId, {
+        $addToSet: { students: { $each: studentIds } },
+      });
+    }
 
     return NextResponse.json({
       message: "Students uploaded and linked to class successfully",
       insertedCount: studentIds.length,
+      totalRows: students.length,
+      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err: any) {
     console.error("Error uploading students:", err);

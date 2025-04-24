@@ -8,6 +8,27 @@ import {
 } from "@react-pdf/renderer";
 import { Suspense } from "react";
 
+// Define type for props
+interface AssessmentFormProps {
+  studentData?: {
+    name: string;
+    sapId: string;
+    rollNo: string;
+    batch: string;
+  };
+  classData?: {
+    courseName: string;
+    courseCode: string;
+    academicYear: string;
+    year: string;
+    semester: string;
+    department: string;
+    facultyName: string;
+    indicators?: string[];
+  };
+  totalMarks?: number | null;
+}
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 10,
@@ -94,7 +115,39 @@ const styles = StyleSheet.create({
   },
 });
 
-export function AssessmentForm() {
+export function AssessmentForm({
+  studentData,
+  classData,
+  totalMarks,
+}: AssessmentFormProps) {
+  // Use props if they exist, otherwise fallback to default values
+  const name = studentData?.name || "Ayush Vinod Upadhyay";
+  const sapId = studentData?.sapId || "60003220131";
+  const rollNo = studentData?.rollNo || "";
+  const batch = studentData?.batch || "T1-2";
+  const course = classData?.courseName || "Data Warehousing and Mining";
+  const code = classData?.courseCode || "DJS221TL503";
+  const year = classData?.year || "T. Y. B. Tech";
+  const semester = classData?.semester || "V";
+  const department = classData?.department || "Information Technology";
+  const facultyName = classData?.facultyName || "Dr. Vinaya Sawant";
+  const acYear = classData?.academicYear || "2024 - 2025";
+  const totalMarksFormatted =
+    totalMarks !== null && totalMarks !== undefined
+      ? totalMarks.toFixed(2)
+      : "";
+
+  // Use the indicators from classData if available, otherwise use defaults
+  const indicators = classData?.indicators || [
+    "1. Knowledge (Factual/Conceptual/Procedural/Metacognitive)",
+    "2. Describe (Factual/Conceptual/Procedural/Metacognitive)",
+    "3. Demonstration (Factual/Conceptual/Procedural/Metacognitive)",
+    "4. Strategy (Analyse & Evaluate) (Factual/Conceptual/Procedural/Metacognitive)",
+    "5. Interpret/Develop (Factual/Conceptual/Procedural/Metacognitive)",
+    "6. Attitude towards learning (receiving, attending, responding, valuing, organizing)",
+    "7. Non-verbal communication skills/ Behavioural skills (motor skills, hand-eye coordination, gross body movements, finely coordinated body movements speech behaviours)",
+  ];
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -112,7 +165,7 @@ export function AssessmentForm() {
               marginLeft: "auto",
               marginRight: "auto",
             }}
-            src={"/djsce.png"}
+            src="/djsce.png"
           />
           <Text
             style={{
@@ -131,7 +184,7 @@ export function AssessmentForm() {
               margin: 5,
             }}
           >
-            Academic Year: 2024 - 2025
+            Academic Year: {acYear}
           </Text>
           <View
             style={{
@@ -143,25 +196,25 @@ export function AssessmentForm() {
               fontSize: 12,
             }}
           >
+            <Text style={{ width: "48%", marginBottom: 5 }}>Name: {name}</Text>
             <Text style={{ width: "48%", marginBottom: 5 }}>
-              Name: Ayush Vinod Upadhyay
+              SAP ID: {sapId}
             </Text>
             <Text style={{ width: "48%", marginBottom: 5 }}>
-              SAP ID: 60003220131
+              Course: {course}
             </Text>
             <Text style={{ width: "48%", marginBottom: 5 }}>
-              Course: Data Warehousing and Mining
+              Course Code: {code}
+            </Text>
+            <Text style={{ width: "48%", marginBottom: 5 }}>Year: {year}</Text>
+            <Text style={{ width: "48%", marginBottom: 5 }}>
+              Sem: {semester}
             </Text>
             <Text style={{ width: "48%", marginBottom: 5 }}>
-              Course Code: DJS221TL503
+              Batch: {batch}
             </Text>
             <Text style={{ width: "48%", marginBottom: 5 }}>
-              Year: T. Y. B. Tech
-            </Text>
-            <Text style={{ width: "48%", marginBottom: 5 }}>Sem: V</Text>
-            <Text style={{ width: "48%", marginBottom: 5 }}>Batch: T1-2</Text>
-            <Text style={{ width: "48%", marginBottom: 5 }}>
-              Department: Information Technology
+              Department: {department}
             </Text>
           </View>
 
@@ -213,14 +266,7 @@ export function AssessmentForm() {
               </Text>
             </View>
 
-            {[
-              "1. Knowledge (Factual/Conceptual/Procedural/Metacognitive)",
-              "2. Describe (Factual/Conceptual/Procedural/Metacognitive)",
-              "3. Demonstration (Factual/Conceptual/Procedural/Metacognitive)",
-              "4. Strategy (Analyse & Evaluate) (Factual/Conceptual/Procedural/Metacognitive)",
-              "5. Interpret/Develop (Factual/Conceptual/Procedural/Metacognitive)",
-              "6. Attitude towards learning (receiving, attending, responding, valuing, organizing)",
-            ].map((label, idx) => (
+            {indicators.slice(0, 6).map((label, idx) => (
               <View style={styles.tableRow} key={idx}>
                 <Text style={[styles.tableCol, styles.tableColFirst]}>
                   {label}
@@ -243,9 +289,8 @@ export function AssessmentForm() {
               <Text
                 style={[styles.tableCol, styles.tableColFirst, styles.lastRow]}
               >
-                7. Non-verbal communication skills/ Behavioural skills (motor
-                skills, hand-eye coordination, gross body movements, finely
-                coordinated body movements speech behaviours)
+                {indicators[6] ||
+                  "7. Non-verbal communication skills/ Behavioural skills (motor skills, hand-eye coordination, gross body movements, finely coordinated body movements speech behaviours)"}
               </Text>
               {[...Array(9)].map((_, i) => (
                 <Text
@@ -295,7 +340,9 @@ export function AssessmentForm() {
             <Text style={{ width: "48%", marginBottom: 5 }}>
               Sign of the Student:
             </Text>
-            <Text style={{ width: "48%", marginBottom: 5 }}>Total Marks:</Text>
+            <Text style={{ width: "48%", marginBottom: 5 }}>
+              Total Marks: {totalMarksFormatted}
+            </Text>
             <Text style={{ width: "48%", marginBottom: 5 }}>
               Sign of the Faculty member:
             </Text>
@@ -303,7 +350,7 @@ export function AssessmentForm() {
               Sign of Head of the Department:
             </Text>
             <Text style={{ width: "48%", marginBottom: 5 }}>
-              Faculty Name: Dr. Vinaya Sawant
+              Faculty Name: {facultyName}
             </Text>
             <Text style={{ width: "48%", marginBottom: 5 }}>
               Date: 19/11/24

@@ -1,6 +1,13 @@
 "use client";
 import React from "react";
-import { ChevronLeft, ChevronRight, Upload, Check } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  Check,
+  AlertCircle,
+  Info,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +33,12 @@ import {
   InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const CreateClass = () => {
   const [step, setStep] = React.useState(1);
@@ -34,6 +47,7 @@ const CreateClass = () => {
     []
   );
   const [csvFile, setCsvFile] = React.useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formData, setFormData] = React.useState({
     courseName: "",
     courseCode: "",
@@ -81,7 +95,9 @@ const CreateClass = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
+      // Create class
       const response = await fetch("/api/classes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,6 +112,7 @@ const CreateClass = () => {
       const { classId } = await response.json();
       toast.success("Class created successfully!");
 
+      // Upload students if CSV file is provided
       if (csvFile) {
         const uploadFormData = new FormData();
         uploadFormData.append("file", csvFile);
@@ -111,11 +128,26 @@ const CreateClass = () => {
           throw new Error(errorData.error || "Failed to upload students");
         }
 
-        toast.success("Students uploaded successfully!");
+        const studentResult = await uploadResponse.json();
+
+        if (studentResult.errors && studentResult.errors.length > 0) {
+          toast.error(
+            `Uploaded ${studentResult.insertedCount} of ${studentResult.totalRows} students. Some students couldn't be uploaded.`
+          );
+        } else {
+          toast.success(
+            `Successfully uploaded ${studentResult.insertedCount} students!`
+          );
+        }
       }
+
+      // Reset form and close dialog
+      window.location.reload();
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "An error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -469,6 +501,41 @@ const CreateClass = () => {
                 CSV should include Name, SAP ID, and Roll Number for each
                 student
               </p>
+              <div className="flex items-center justify-center mt-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-1 text-blue-400"
+                      >
+                        <Info size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-gray-800 border-gray-700 text-gray-200 max-w-xs p-3">
+                      <p className="text-xs">
+                        CSV file should have these columns:
+                        <br />
+                        - Name (or Student Name, Full Name)
+                        <br />
+                        - SAP ID (or SAP, SAP Number, SAP No)
+                        <br />
+                        - Roll Number (or Roll No, Roll, Student ID)
+                        <br />- Batch (optional, will use class batch if not
+                        provided)
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <a
+                  href="/sample_students.csv"
+                  download
+                  className="text-xs text-blue-400 underline hover:text-blue-300 ml-2"
+                >
+                  Download Sample
+                </a>
+              </div>
             </div>
             <input
               type="file"
@@ -499,6 +566,7 @@ const CreateClass = () => {
               variant="outline"
               onClick={handlePrev}
               className="border-gray-700 bg-gray-800 text-blue-300 hover:bg-gray-800 hover:text-blue-300 font-roboto w-full sm:w-auto"
+              disabled={isSubmitting}
             >
               <ChevronLeft size={16} className="mr-2" /> Previous
             </Button>
@@ -509,6 +577,7 @@ const CreateClass = () => {
             <Button
               onClick={handleNext}
               className="bg-blue-700 hover:bg-blue-600 font-roboto w-full sm:w-auto"
+              disabled={isSubmitting}
             >
               Next <ChevronRight size={16} className="ml-2" />
             </Button>
@@ -516,8 +585,16 @@ const CreateClass = () => {
             <Button
               className="bg-blue-700 hover:bg-blue-600 font-roboto w-full sm:w-auto"
               onClick={handleSubmit}
+              disabled={isSubmitting}
             >
-              Create Class
+              {isSubmitting ? (
+                <>
+                  <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-t-transparent border-white"></div>
+                  Creating...
+                </>
+              ) : (
+                "Create Class"
+              )}
             </Button>
           )}
         </div>
