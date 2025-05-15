@@ -1,11 +1,26 @@
 import { NextResponse } from "next/server";
 import connect from "@/utils/db";
-import { Student } from "@/models/Student";
+import Student from "@/models/Student";
 import Class from "@/models/Class";
 import csv from "csvtojson";
+import jwt from "jsonwebtoken";
+import { jwtSecret } from "@/utils/envVariables";
 
 export async function POST(req: Request) {
   await connect();
+
+  // --- AUTH CHECK ---
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const token = authHeader.split(" ")[1];
+  try {
+    jwt.verify(token, jwtSecret);
+  } catch (err) {
+    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+  }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;

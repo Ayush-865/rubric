@@ -37,19 +37,22 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const res = await fetch("/api/classes");
+        const token =
+          typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const res = await fetch("/api/classes", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (!res.ok) {
           throw new Error("Failed to fetch classes");
         }
         const data = await res.json();
         setClasses(data);
-        setHasClasses(data.length > 0); // Update hasClasses based on fetched data
+        setHasClasses(data.length > 0);
       } catch (error) {
         console.error("Error fetching classes:", error);
-        setHasClasses(false); // Handle empty state if fetch fails
+        setHasClasses(false);
       }
     };
-
     fetchClasses();
   }, []);
 

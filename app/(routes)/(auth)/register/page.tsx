@@ -35,13 +35,16 @@ export default function RegisterPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Something went wrong");
 
-      // Save token and update global state
-      localStorage.setItem("token", data.token);
-      setIsAuthenticated(true); // Update the global state
-      toast.success("Registration successful");
-
-      // Redirect to dashboard or login
-      router.push("/dashboard");
+      // Save token and update global state only if token exists
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        setIsAuthenticated(true); // Update the global state
+        toast.success("Registration successful");
+        router.push("/");
+        router.refresh();
+      } else {
+        throw new Error("No token received from server. Please try logging in.");
+      }
     } catch (error: any) {
       console.error("Registration failed", error.message);
       toast.error(error.message || "Registration failed. Please try again.");

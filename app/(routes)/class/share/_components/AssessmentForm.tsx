@@ -6,7 +6,6 @@ import {
   Image,
   StyleSheet,
 } from "@react-pdf/renderer";
-import { Suspense } from "react";
 
 // Define type for props
 interface AssessmentFormProps {
@@ -80,7 +79,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   tableColFirst: {
-    flex: 2.5,
+    flex: 4,
   },
   tableHeader: {
     fontWeight: "bold",
@@ -128,74 +127,61 @@ export function AssessmentForm({
   experiments,
   experimentTotals,
 }: AssessmentFormProps) {
+  // Define fixed row labels and keywords
+  const rowLabels = [
+    "1. Knowledge (Factual/Conceptual/Procedural/Metacognitive)",
+    "2. Describe (Factual/Conceptual/Procedural/Metacognitive)",
+    "3. Demonstration (Factual/Conceptual/Procedural/Metacognitive)",
+    "4. Strategy (Analyse & Evaluate) (Factual/Conceptual/Procedural/Metacognitive)",
+    "5. Interpret/Develop (Factual/Conceptual/Procedural/Metacognitive)",
+    "6. Attitude towards learning (receiving, attending, responding, valuing, organizing)",
+    "7. Non-verbal communication skills/ Behavioural skills (motor skills, hand-eye coordination, gross body movements, finely coordinated body movements speech behaviours)",
+  ];
+
+  const rowKeywords = [
+    "knowledge",
+    "describe",
+    "demonstration",
+    "strategy",
+    "interpret",
+    "attitude",
+    "non-verbal",
+  ];
+
   // Use props if they exist, otherwise fallback to default values
-  const name = studentData?.name || "Ayush Vinod Upadhyay";
-  const sapId = studentData?.sapId || "60003220131";
+  const name = studentData?.name || "John Doe";
+  const sapId = studentData?.sapId || "500123456";
   const rollNo = studentData?.rollNo || "";
-  const batch = studentData?.batch || "T1-2";
-  const course = classData?.courseName || "Data Warehousing and Mining";
-  const code = classData?.courseCode || "DJS221TL503";
+  const batch = studentData?.batch || "A";
+  const course = classData?.courseName || "Web Development";
+  const code = classData?.courseCode || "DJS22L602";
   const year = classData?.year || "T. Y. B. Tech";
-  const semester = classData?.semester || "V";
+  const semester = classData?.semester || "VI";
   const department = classData?.department || "Information Technology";
-  const facultyName = classData?.facultyName || "Dr. Vinaya Sawant";
+  const facultyName = classData?.facultyName || "Prof. Prachi Satam";
   const acYear = classData?.academicYear || "2024 - 2025";
   const totalMarksFormatted =
     totalMarks !== null && totalMarks !== undefined
       ? totalMarks.toFixed(2)
       : "";
 
-  // Use only the indicators from classData
-  const indicators = classData?.indicators || [];
-  
-  // Maximum number of indicators to display in the table
-  const MAX_INDICATORS_TO_DISPLAY = 7;
-  
-  // Determine how many indicators to actually display (limited to max)
-  const indicatorsToDisplay = Math.min(indicators.length, MAX_INDICATORS_TO_DISPLAY);
-  
-  // Helper function to find indicator value
-  const getIndicatorValue = (expKey: string, indicator: string) => {
-    if (!experiments || !expKey) return undefined;
-    
-    const exp = experiments[expKey];
-    if (!exp) return undefined;
-    
-    // Try exact match first
-    if (exp[indicator] !== undefined) {
-      return exp[indicator];
-    }
-    
-    // Try matching by number
-    const indicatorNumber = indicator.match(/^\d+/)?.[0];
-    if (indicatorNumber && exp[indicatorNumber] !== undefined) {
-      return exp[indicatorNumber];
-    }
-    
-    return undefined;
-  };
-  
-  // Get list of experiments and sort them numerically
-  const experimentKeys = experiments ? Object.keys(experiments)
-    .sort((a, b) => {
-      // Extract numbers from experiment keys (e.g., "Exp1" -> 1)
-      const numA = parseInt(a.replace(/\D/g, ''));
-      const numB = parseInt(b.replace(/\D/g, ''));
-      return numA - numB;
-    }) : [];
-  
-  // Get experiment column count (limited to 10 for space)
-  const experimentCount = Math.min(experimentKeys.length, 10);
+  // Get indicator keys
+  const indicatorKeys = classData?.indicators || [];
+
+  // Get and sort experiment keys
+  const experimentKeys = experiments
+    ? Object.keys(experiments).sort((a, b) => {
+        const numA = parseInt(a.replace(/\D/g, ""));
+        const numB = parseInt(b.replace(/\D/g, ""));
+        return numA - numB;
+      })
+    : [];
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.pageBorder} />
-        <View
-          style={{
-            padding: 20,
-          }}
-        >
+        <View style={{ padding: 20 }}>
           <Image
             style={{
               width: "70%",
@@ -257,11 +243,7 @@ export function AssessmentForm({
             </Text>
           </View>
 
-          <View
-            style={{
-              marginBottom: 5,
-            }}
-          >
+          <View style={{ marginBottom: 5 }}>
             <Text
               style={{
                 fontSize: 12,
@@ -293,98 +275,66 @@ export function AssessmentForm({
               >
                 Course Outcome
               </Text>
-              {Array.from({ length: experimentCount }, (_, i) => {
-                const expKey = experimentKeys[i];
-                // Extract experiment number from key (e.g., "Exp10" -> "10")
-                const expNumber = expKey ? expKey.replace(/\D/g, '') : (i + 1).toString();
-                return (
-                  <Text key={i} style={[styles.tableCol, styles.tableHeader]}>
-                    {expNumber}
-                  </Text>
-                );
-              })}
-              {experimentCount < 10 &&
-                Array.from({ length: 10 - experimentCount }, (_, i) => (
-                  <Text key={i + experimentCount} style={[styles.tableCol, styles.tableHeader]}>
-                    {i + experimentCount + 1}
-                  </Text>
-                ))
-              }
+              {Array.from({ length: 10 }, (_, i) => (
+                <Text
+                  key={i}
+                  style={[
+                    styles.tableCol,
+                    i === 9 ? styles.lastCol : {},
+                    styles.tableHeader,
+                  ]}
+                >
+                  {i + 1}
+                </Text>
+              ))}
             </View>
-
-            {/* Safe rendering of indicator rows */}
-            {indicators.slice(0, indicatorsToDisplay).map((label, idx) => {
-              const isLastRow = idx === indicatorsToDisplay - 1;
-              if (!label) return null;
+            {rowLabels.map((label, idx) => {
+              const keyword = rowKeywords[idx];
+              const matchingIndicator = indicatorKeys.find((key) =>
+                key.toLowerCase().includes(keyword)
+              );
               return (
                 <View style={styles.tableRow} key={idx}>
-                  <Text style={[
-                    styles.tableCol,
-                    styles.tableColFirst,
-                    isLastRow ? styles.lastRow : {}
-                  ]}>
+                  <Text
+                    style={[
+                      styles.tableCol,
+                      styles.tableColFirst,
+                      idx === 6 ? styles.lastRow : {},
+                    ]}
+                  >
                     {label}
                   </Text>
-                  {Array.from({ length: experimentCount }, (_, i) => {
-                    try {
-                      const expKey = experimentKeys[i];
-                      const value = getIndicatorValue(expKey, label);
-                      return (
-                        <Text key={i} style={[
-                          styles.tableCol,
-                          styles.tableCell,
-                          isLastRow ? styles.lastRow : {}
-                        ]}>
-                          {value !== undefined ? value : " "}
-                        </Text>
-                      );
-                    } catch (err) {
-                      console.error(`Error rendering cell: ${err}`);
-                      return (
-                        <Text key={i} style={[
-                          styles.tableCol,
-                          styles.tableCell,
-                          isLastRow ? styles.lastRow : {}
-                        ]}>
-                          {" "}
-                        </Text>
-                      );
+                  {Array.from({ length: 10 }, (_, colIdx) => {
+                    const expKey = experimentKeys[colIdx];
+                    let value = "-";
+                    if (
+                      matchingIndicator &&
+                      expKey &&
+                      experiments &&
+                      experiments[expKey] &&
+                      experiments[expKey][matchingIndicator] !== undefined
+                    ) {
+                      value = experiments[expKey][matchingIndicator].toString();
                     }
-                  })}
-                  {experimentCount < 10 &&
-                    Array.from({ length: 10 - experimentCount }, (_, i) => (
-                      <Text key={i + experimentCount} style={[
-                        styles.tableCol,
-                        styles.tableCell,
-                        isLastRow ? styles.lastRow : {}
-                      ]}>
-                        {" "}
+                    return (
+                      <Text
+                        key={colIdx}
+                        style={[
+                          styles.tableCol,
+                          colIdx === 9 ? styles.lastCol : {},
+                          styles.tableCell,
+                          idx === 6 ? styles.lastRow : {},
+                        ]}
+                      >
+                        {value}
                       </Text>
-                    ))
-                  }
+                    );
+                  })}
                 </View>
               );
             })}
-
-            {/* Only show default last row if no indicators exist */}
-            {indicators.length === 0 && (
-              <View style={styles.tableRow}>
-                <Text
-                  style={[styles.tableCol, styles.tableColFirst, styles.lastRow]}
-                >
-                  No performance indicators defined for this class
-                </Text>
-                {Array.from({ length: 10 }, (_, i) => (
-                  <Text 
-                    key={i} 
-                    style={[styles.tableCol, styles.tableCell, styles.lastRow]}
-                  >
-                    {" "}
-                  </Text>
-                ))}
-              </View>
-            )}
           </View>
+
           <View
             style={{
               marginBottom: 10,
@@ -430,12 +380,7 @@ export function AssessmentForm({
             </Text>
           </View>
 
-          <View
-            style={{
-              marginTop: 25,
-              textAlign: "center",
-            }}
-          >
+          <View style={{ marginTop: 25, textAlign: "center" }}>
             <Text style={{ fontSize: 8 }}>
               Plot No. U-15, J.V.P.D. Scheme, Bhaktivedanta Swami Marg, Vile
               Parle (W), Mumbai - 400056

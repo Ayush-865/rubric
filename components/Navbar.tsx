@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,9 +38,43 @@ const Navbar = ({
     login: { title: "Login", url: "/login" },
     signup: { title: "Sign up", url: "/register" },
   },
-  isAuthenticated,
+  isAuthenticated: _isAuthenticated, // renamed to avoid shadowing
   onLogout,
 }: NavbarProps) => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Helper to check token
+  const checkToken = () => {
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("token");
+      setIsLoggedIn(!!token);
+    }
+  };
+
+  useEffect(() => {
+    checkToken();
+    // Listen for storage changes (cross-tab)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "token") checkToken();
+    };
+    window.addEventListener("storage", handleStorage);
+    // Listen for window focus (single tab)
+    const handleFocus = () => checkToken();
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []); // <-- FIXED: do not use [localStorage] as dependency
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+    }
+    onLogout();
+    setIsLoggedIn(false);
+  };
+
   return (
     <section className="p-4 bg-gray-900 border-b border-blue-900">
       <div className="container mx-auto flex items-center justify-between text-white">
@@ -71,9 +106,9 @@ const Navbar = ({
 
         {/* Auth Buttons */}
         <div className="flex gap-2">
-          {isAuthenticated ? (
+          {isLoggedIn ? (
             <Button
-              onClick={onLogout}
+              onClick={handleLogout}
               size="sm"
               className="bg-red-600 hover:bg-red-500 font-roboto text-white focus:text-white active:text-white"
             >

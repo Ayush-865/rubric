@@ -1,12 +1,42 @@
 import { NextResponse } from "next/server";
 import connect from "@/utils/db";
 import Class from "@/models/Class";
+import User from "@/models/User";
+import jwt from "jsonwebtoken";
 
 export async function GET(req: Request) {
   await connect();
   try {
-    const classes = await Class.find().populate("students");
-
+    // Allow unauthenticated access to /share route
+    const url = new URL(req.url);
+    if (url.pathname.startsWith("/api/classes/share")) {
+      // No auth required for share route
+      // You may want to add your share logic here if needed
+      return NextResponse.json({ message: "Share route - no auth required" });
+    }
+    // Auth required for all other routes
+    // Extract token from Authorization header
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const token = authHeader.split(" ")[1];
+    let userEmail;
+    try {
+      const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+      userEmail = decoded.email;
+    } catch (err) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+    // Find user by email to get ObjectId
+    const user = await User.findOne({ email: userEmail });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    // Only fetch classes created by this user
+    const classes = await Class.find({ createdBy: user._id }).populate(
+      "students"
+    );
     // Transform data to match frontend expectations
     const formattedClasses = classes.map((cls) => ({
       id: cls._id,
@@ -21,7 +51,6 @@ export async function GET(req: Request) {
       indicators: cls.indicators,
       students: cls.students?.length || 0,
     }));
-
     return NextResponse.json(formattedClasses);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -31,6 +60,26 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   await connect();
   try {
+    // Extract token from Authorization header
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const token = authHeader.split(" ")[1];
+    let userEmail;
+    try {
+      const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+      userEmail = decoded.email;
+    } catch (err) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    // Find user by email to get ObjectId
+    const user = await User.findOne({ email: userEmail });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const data = await req.json();
 
     // Validate required fields
@@ -73,6 +122,7 @@ export async function POST(req: Request) {
       facultyName: data.facultyName,
       indicators: data.indicators,
       students: [],
+      createdBy: user._id, // Use ObjectId
     });
 
     return NextResponse.json({ classId: newClass._id }, { status: 201 });

@@ -98,9 +98,14 @@ const CreateClass = () => {
     setIsSubmitting(true);
     try {
       // Create class
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const response = await fetch("/api/classes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(classData),
       });
 
@@ -118,8 +123,13 @@ const CreateClass = () => {
         uploadFormData.append("file", csvFile);
         uploadFormData.append("classId", classId);
 
+        const uploadToken =
+          typeof window !== "undefined" ? localStorage.getItem("token") : null;
         const uploadResponse = await fetch("/api/students", {
           method: "POST",
+          headers: {
+            ...(uploadToken ? { Authorization: `Bearer ${uploadToken}` } : {}),
+          },
           body: uploadFormData,
         });
 
@@ -513,15 +523,12 @@ const CreateClass = () => {
                         <Info size={16} />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent className="bg-gray-800 border-gray-700 text-gray-200 max-w-xs p-3">
-                      <p className="text-xs">
-                        CSV file should have these columns:
-                        <br />
-                        - Name (or Student Name, Full Name)
-                        <br />
-                        - SAP ID (or SAP, SAP Number, SAP No)
-                        <br />
-                        - Roll Number (or Roll No, Roll, Student ID)
+                    <TooltipContent className="text-xs text-gray-300 bg-gray-900 border border-blue-900 max-w-xs">
+                      <p>
+                        The CSV should have columns:
+                        <br />- Name
+                        <br />- SAP ID (or SAP, SAP Number, SAP No)
+                        <br />- Roll Number (or Roll No, Roll, Student ID)
                         <br />- Batch (optional, will use class batch if not
                         provided)
                       </p>

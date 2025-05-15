@@ -3,6 +3,10 @@ import { NextRequest } from "next/server";
 import connect from "@/utils/db";
 import Class from "@/models/Class";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import { jwtSecret } from "@/utils/envVariables";
+import Student from "@/models/Student";
+import Marks from "@/models/Marks";
 
 // Define an interface for the marks data
 interface MarkUpdate {
@@ -15,44 +19,25 @@ interface MarkUpdate {
   };
 }
 
-// Create a model for storing the marks data
-const MarksSchema = new mongoose.Schema({
-  classId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Class",
-    required: true,
-  },
-  studentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Student",
-    required: true,
-  },
-  experiments: {
-    type: Map,
-    of: {
-      type: Map,
-      of: Number,
-    },
-  },
-  experimentTotals: {
-    type: Map,
-    of: Number,
-  },
-  totalMarks: Number,
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-// Compound index to ensure uniqueness for class-student combination
-MarksSchema.index({ classId: 1, studentId: 1 }, { unique: true });
-
-// Get or create the model
-const Marks = mongoose.models.Marks || mongoose.model("Marks", MarksSchema);
-
 export async function POST(req: NextRequest) {
   await connect();
+
+  // --- DEBUG LOGGING FOR AUTH ---
+  const authHeader = req.headers.get("authorization");
+  console.log("[MARKS ROUTE] Authorization header:", authHeader);
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.log("[MARKS ROUTE] No or invalid Authorization header");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, jwtSecret);
+    console.log("[MARKS ROUTE] Token decoded:", decoded);
+  } catch (err) {
+    console.log("[MARKS ROUTE] JWT verification error:", err);
+    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+  }
+
   try {
     const data: MarkUpdate = await req.json();
 
@@ -122,7 +107,8 @@ export async function POST(req: NextRequest) {
     console.error("Error updating marks:", err);
 
     // Handle specific error types
-    if (err instanceof mongoose.Error.ValidationError) {
+    const isValidationError = err instanceof mongoose.Error.ValidationError;
+    if (isValidationError) {
       return NextResponse.json(
         { error: "Invalid data format", details: err.message },
         { status: 400 }
@@ -138,6 +124,22 @@ export async function POST(req: NextRequest) {
 
 // GET method to fetch marks for a class
 export async function GET(request: NextRequest) {
+  // --- DEBUG LOGGING FOR AUTH ---
+  const authHeader = request.headers.get("authorization");
+  console.log("[MARKS ROUTE] Authorization header:", authHeader);
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.log("[MARKS ROUTE] No or invalid Authorization header");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, jwtSecret);
+    console.log("[MARKS ROUTE] Token decoded:", decoded);
+  } catch (err) {
+    console.log("[MARKS ROUTE] JWT verification error:", err);
+    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+  }
+
   try {
     // Connect to the database
     await connect();

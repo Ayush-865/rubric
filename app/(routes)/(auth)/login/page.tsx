@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/providers/Providers";
 
 export default function LoginPage() {
+  const router = useRouter(); // For navigation
+
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const { setIsAuthenticated } = useAuth(); // Access the global state updater
 
@@ -30,6 +33,10 @@ export default function LoginPage() {
       localStorage.setItem("token", data.token);
       setIsAuthenticated(true); // Update the global state
       toast.success("Login successful");
+      // Redirect to dashboard or home
+      router.push("/");
+      //reload
+      router.refresh();
     } catch (error) {
       console.error("Login failed", error);
       toast.error("Login failed. Please try again.");

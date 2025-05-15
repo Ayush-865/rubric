@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import connect from "@/utils/db";
-import { Student } from "@/models/Student";
+import Student from "@/models/Student";
 import Class from "@/models/Class";
+import Marks from "@/models/Marks";
 import mongoose from "mongoose";
 
 export async function GET(request: NextRequest) {
@@ -50,11 +51,7 @@ export async function GET(request: NextRequest) {
         { error: "Student is not enrolled in this class" },
         { status: 404 }
       );
-    }
-
-    // Get marks for this student in this class
-    const Marks =
-      mongoose.models.Marks || mongoose.model("Marks", new mongoose.Schema({}));
+    } // Get marks for this student in this class using our imported Marks model
     const marks = await Marks.findOne({
       classId: classDoc._id,
       studentId: student._id,
@@ -63,25 +60,28 @@ export async function GET(request: NextRequest) {
     // Process the marks data to ensure it's in the correct format
     let processedExperiments: Record<string, any> = {};
     let experimentTotals: Record<string, any> = {};
-    
+
     if (marks && marks.experiments) {
       // Convert Map to regular object if needed
-      const experiments = marks.experiments instanceof Map 
-        ? Object.fromEntries(marks.experiments) 
-        : marks.experiments;
-      
+      const experiments =
+        marks.experiments instanceof Map
+          ? Object.fromEntries(marks.experiments)
+          : marks.experiments;
+
       // Process each experiment
       for (const [expKey, indicators] of Object.entries(experiments)) {
         // Convert nested Map to object if needed
-        processedExperiments[expKey] = indicators instanceof Map 
-          ? Object.fromEntries(indicators) 
-          : indicators;
+        processedExperiments[expKey] =
+          indicators instanceof Map
+            ? Object.fromEntries(indicators)
+            : indicators;
       }
-      
+
       // Process experiment totals
-      experimentTotals = marks.experimentTotals instanceof Map
-        ? Object.fromEntries(marks.experimentTotals)
-        : marks.experimentTotals || {};
+      experimentTotals =
+        marks.experimentTotals instanceof Map
+          ? Object.fromEntries(marks.experimentTotals)
+          : marks.experimentTotals || {};
     }
 
     // Get all raw data without processing it
@@ -118,9 +118,23 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error fetching student data:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch student data" },
-      { status: 500 }
-    );
+
+    // Enhanced error logging for debugging
+    if (error instanceof mongoose.Error.ValidationError) {
+      console.error("Mongoose validation error:", error.errors);
+      return NextResponse.json(
+        { error: "Invalid data format: " + error.message },
+        { status: 400 }
+      );
+    }
+
+    if (error.name === "CastError") {
+      console.error("Cast error (probably invalid ID):", error);
+      return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
+    }
+
+    // Return more specific error message when possible
+    const errorMessage = error.message || "Failed to fetch student data";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

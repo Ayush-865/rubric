@@ -17,8 +17,11 @@ const StudentSchema = new mongoose.Schema({
   batch: {
     type: String,
     required: true,
-  }
+  },
 });
 
-export const Student =
+// First try to get the existing model to prevent OverwriteModelError
+const Student =
   mongoose.models.Student || mongoose.model("Student", StudentSchema);
+
+export default Student;

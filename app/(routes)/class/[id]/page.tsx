@@ -102,7 +102,12 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
     const fetchClassData = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/classes/${params.id}`);
+        const token =
+          typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const response = await fetch(
+          `/api/classes/${params.id}`,
+          token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+        );
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -177,7 +182,15 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
       // Then fetch any saved marks from the database
       const fetchMarks = async () => {
         try {
-          const response = await fetch(`/api/marks?classId=${classInfo.id}`);
+          const token =
+            typeof window !== "undefined"
+              ? localStorage.getItem("token")
+              : null;
+          const response = await fetch(`/api/marks?classId=${classInfo.id}`, {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          });
 
           if (!response.ok) {
             console.error("Failed to fetch marks:", await response.json());
@@ -611,19 +624,21 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
     const value = e.target.value.replace(/[^0-9.]/g, "");
     setCurrentValue(value);
   };
-
   // Handle key press events
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
+      e.preventDefault(); // Prevent form submission
       saveCurrentValue();
     } else if (e.key === "Escape") {
+      e.preventDefault(); // Prevent default behavior
       setEditingCell(null);
       setExpandedStudent(null); // Contract row when Escape is pressed
     } else if (
       ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
     ) {
-      e.preventDefault();
-      navigateCell(e.key);
+      e.preventDefault(); // Prevent scroll and default behavior
+      // Use setTimeout to ensure React's event handling is complete
+      setTimeout(() => navigateCell(e.key), 0);
     }
   };
 
@@ -749,20 +764,36 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
           }
         }
         break;
-    }
+    } // Store editing cell information before clearing it
+    const savedEditingCell = { ...editingCell };
+    const currentValueToSave = currentValue;
 
-    // Save current value before navigating
-    saveCurrentValue();
+    // Temporarily disable editing to prevent UI flicker
+    setEditingCell(null);
 
-    // Start editing the next cell
-    startEdit(nextStudentId, nextField, nextIndicator);
-  };
+    // Execute save operation and then navigate to next cell
+    Promise.resolve().then(() => {
+      // Save the current value with the saved cell reference
+      if (currentValueToSave !== "") {
+        saveCurrentValue(savedEditingCell, currentValueToSave);
+      }
 
-  // Save current value and exit edit mode
-  const saveCurrentValue = async () => {
-    if (!editingCell || !classInfo) return;
+      // After a short delay, move to the next cell to prevent race conditions
+      setTimeout(() => {
+        // Only navigate if we have valid next values
+        if (nextStudentId && nextField) {
+          startEdit(nextStudentId, nextField, nextIndicator);
+        }
+      }, 50);
+    });
+  }; // Save current value and exit edit mode
+  const saveCurrentValue = async (
+    cellToSave = editingCell,
+    valueToSave = currentValue
+  ) => {
+    if (!cellToSave || !classInfo) return;
 
-    const { studentId, field, indicator } = editingCell;
+    const { studentId, field, indicator } = cellToSave;
 
     // Find student to update
     const studentIndex = students.findIndex((s) => s.id === studentId);
@@ -770,12 +801,12 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
       setEditingCell(null);
       return;
     }
-
-    // Validate input
+    // Use the passed value or currentValue state
+    const valueToUpdate = valueToSave || currentValue; // Validate input
     const isIndicator = Boolean(indicator);
     const isGrandTotal = field === "totalMarks";
     const validatedValue = validateMark(
-      currentValue,
+      valueToUpdate,
       isIndicator,
       isGrandTotal
     );
@@ -795,7 +826,7 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
         );
         const expTotal = Math.round(
           indicatorValues.reduce((sum, val) => sum + val, 0)
-        ); // Ensure integer total
+        );
         updatedStudent.experimentTotals[expName] = expTotal;
       } else {
         // Updating experiment total directly
@@ -841,10 +872,13 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
 
     // Save to database
     try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const response = await fetch("/api/marks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           classId: classInfo.id,
@@ -860,11 +894,11 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
       if (!response.ok) {
         const errorData = await response.json();
         console.error("Failed to save marks:", errorData);
-        toast.error("Failed to save marks to the database");
+        // toast.error("Failed to save marks to the database");
       }
     } catch (error) {
       console.error("Error saving marks:", error);
-      toast.error("Network error while saving marks");
+      // toast.error("Network error while saving marks");
     }
 
     // Exit edit mode
@@ -925,13 +959,15 @@ const ClassDetailPage = ({ params }: { params: { id: string } }) => {
           className={`${cellBaseStyle} ${editingCellStyle}`}
           style={cellStyle}
         >
+          {" "}
           <Input
             ref={inputRef}
             type="text"
             value={currentValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            onBlur={saveCurrentValue}
+            // Use onBlur without immediate redirect to prevent losing focus issues
+            onBlur={() => setTimeout(() => saveCurrentValue(), 10)}
             className="h-7 sm:h-10 text-center bg-blue-900/20 border-blue-600 focus-visible:ring-blue-500 w-full rounded-none text-xs sm:text-sm"
             style={{
               width: "100%",
