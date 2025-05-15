@@ -40,6 +40,11 @@ export default function DownloadRubricPage({
       }
 
       const result = await response.json();
+      
+      // Log the marks data structure to understand it better
+      console.log('Marks data:', result.data?.marks);
+      console.log('Experiments:', result.data?.marks?.experiments);
+      console.log('Indicators:', result.data?.class?.indicators);
 
       if (result.data) {
         // Extract data from API response
@@ -62,6 +67,8 @@ export default function DownloadRubricPage({
         };
 
         const totalMarks = result.data.marks?.totalMarks || null;
+        const experiments = result.data.marks?.experiments || {};
+        const experimentTotals = result.data.marks?.experimentTotals || {};
 
         // Create blob URL for the PDF with data passed as props
         const blob = await pdf(
@@ -69,6 +76,8 @@ export default function DownloadRubricPage({
             studentData={studentData}
             classData={classData}
             totalMarks={totalMarks}
+            experiments={experiments}
+            experimentTotals={experimentTotals}
           />
         ).toBlob();
 

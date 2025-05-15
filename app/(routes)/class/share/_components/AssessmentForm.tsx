@@ -27,6 +27,12 @@ interface AssessmentFormProps {
     indicators?: string[];
   };
   totalMarks?: number | null;
+  experiments?: {
+    [key: string]: { [key: string]: number };
+  };
+  experimentTotals?: {
+    [key: string]: number;
+  };
 }
 
 const styles = StyleSheet.create({
@@ -74,7 +80,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   tableColFirst: {
-    flex: 4,
+    flex: 2.5,
   },
   tableHeader: {
     fontWeight: "bold",
@@ -119,6 +125,8 @@ export function AssessmentForm({
   studentData,
   classData,
   totalMarks,
+  experiments,
+  experimentTotals,
 }: AssessmentFormProps) {
   // Use props if they exist, otherwise fallback to default values
   const name = studentData?.name || "Ayush Vinod Upadhyay";
@@ -137,16 +145,47 @@ export function AssessmentForm({
       ? totalMarks.toFixed(2)
       : "";
 
-  // Use the indicators from classData if available, otherwise use defaults
-  const indicators = classData?.indicators || [
-    "1. Knowledge (Factual/Conceptual/Procedural/Metacognitive)",
-    "2. Describe (Factual/Conceptual/Procedural/Metacognitive)",
-    "3. Demonstration (Factual/Conceptual/Procedural/Metacognitive)",
-    "4. Strategy (Analyse & Evaluate) (Factual/Conceptual/Procedural/Metacognitive)",
-    "5. Interpret/Develop (Factual/Conceptual/Procedural/Metacognitive)",
-    "6. Attitude towards learning (receiving, attending, responding, valuing, organizing)",
-    "7. Non-verbal communication skills/ Behavioural skills (motor skills, hand-eye coordination, gross body movements, finely coordinated body movements speech behaviours)",
-  ];
+  // Use only the indicators from classData
+  const indicators = classData?.indicators || [];
+  
+  // Maximum number of indicators to display in the table
+  const MAX_INDICATORS_TO_DISPLAY = 7;
+  
+  // Determine how many indicators to actually display (limited to max)
+  const indicatorsToDisplay = Math.min(indicators.length, MAX_INDICATORS_TO_DISPLAY);
+  
+  // Helper function to find indicator value
+  const getIndicatorValue = (expKey: string, indicator: string) => {
+    if (!experiments || !expKey) return undefined;
+    
+    const exp = experiments[expKey];
+    if (!exp) return undefined;
+    
+    // Try exact match first
+    if (exp[indicator] !== undefined) {
+      return exp[indicator];
+    }
+    
+    // Try matching by number
+    const indicatorNumber = indicator.match(/^\d+/)?.[0];
+    if (indicatorNumber && exp[indicatorNumber] !== undefined) {
+      return exp[indicatorNumber];
+    }
+    
+    return undefined;
+  };
+  
+  // Get list of experiments and sort them numerically
+  const experimentKeys = experiments ? Object.keys(experiments)
+    .sort((a, b) => {
+      // Extract numbers from experiment keys (e.g., "Exp1" -> 1)
+      const numA = parseInt(a.replace(/\D/g, ''));
+      const numB = parseInt(b.replace(/\D/g, ''));
+      return numA - numB;
+    }) : [];
+  
+  // Get experiment column count (limited to 10 for space)
+  const experimentCount = Math.min(experimentKeys.length, 10);
 
   return (
     <Document>
@@ -254,63 +293,97 @@ export function AssessmentForm({
               >
                 Course Outcome
               </Text>
-              {[...Array(9)].map((_, i) => (
-                <Text key={i} style={[styles.tableCol, styles.tableHeader]}>
-                  {i + 1}
-                </Text>
-              ))}
-              <Text
-                style={[styles.tableCol, styles.lastCol, styles.tableHeader]}
-              >
-                10
-              </Text>
+              {Array.from({ length: experimentCount }, (_, i) => {
+                const expKey = experimentKeys[i];
+                // Extract experiment number from key (e.g., "Exp10" -> "10")
+                const expNumber = expKey ? expKey.replace(/\D/g, '') : (i + 1).toString();
+                return (
+                  <Text key={i} style={[styles.tableCol, styles.tableHeader]}>
+                    {expNumber}
+                  </Text>
+                );
+              })}
+              {experimentCount < 10 &&
+                Array.from({ length: 10 - experimentCount }, (_, i) => (
+                  <Text key={i + experimentCount} style={[styles.tableCol, styles.tableHeader]}>
+                    {i + experimentCount + 1}
+                  </Text>
+                ))
+              }
             </View>
 
-            {indicators.slice(0, 6).map((label, idx) => (
-              <View style={styles.tableRow} key={idx}>
-                <Text style={[styles.tableCol, styles.tableColFirst]}>
-                  {label}
+            {/* Safe rendering of indicator rows */}
+            {indicators.slice(0, indicatorsToDisplay).map((label, idx) => {
+              const isLastRow = idx === indicatorsToDisplay - 1;
+              if (!label) return null;
+              return (
+                <View style={styles.tableRow} key={idx}>
+                  <Text style={[
+                    styles.tableCol,
+                    styles.tableColFirst,
+                    isLastRow ? styles.lastRow : {}
+                  ]}>
+                    {label}
+                  </Text>
+                  {Array.from({ length: experimentCount }, (_, i) => {
+                    try {
+                      const expKey = experimentKeys[i];
+                      const value = getIndicatorValue(expKey, label);
+                      return (
+                        <Text key={i} style={[
+                          styles.tableCol,
+                          styles.tableCell,
+                          isLastRow ? styles.lastRow : {}
+                        ]}>
+                          {value !== undefined ? value : " "}
+                        </Text>
+                      );
+                    } catch (err) {
+                      console.error(`Error rendering cell: ${err}`);
+                      return (
+                        <Text key={i} style={[
+                          styles.tableCol,
+                          styles.tableCell,
+                          isLastRow ? styles.lastRow : {}
+                        ]}>
+                          {" "}
+                        </Text>
+                      );
+                    }
+                  })}
+                  {experimentCount < 10 &&
+                    Array.from({ length: 10 - experimentCount }, (_, i) => (
+                      <Text key={i + experimentCount} style={[
+                        styles.tableCol,
+                        styles.tableCell,
+                        isLastRow ? styles.lastRow : {}
+                      ]}>
+                        {" "}
+                      </Text>
+                    ))
+                  }
+                </View>
+              );
+            })}
+
+            {/* Only show default last row if no indicators exist */}
+            {indicators.length === 0 && (
+              <View style={styles.tableRow}>
+                <Text
+                  style={[styles.tableCol, styles.tableColFirst, styles.lastRow]}
+                >
+                  No performance indicators defined for this class
                 </Text>
-                {[...Array(9)].map((_, i) => (
-                  <Text key={i} style={[styles.tableCol, styles.tableCell]}>
+                {Array.from({ length: 10 }, (_, i) => (
+                  <Text 
+                    key={i} 
+                    style={[styles.tableCol, styles.tableCell, styles.lastRow]}
+                  >
                     {" "}
                   </Text>
                 ))}
-                <Text
-                  style={[styles.tableCol, styles.lastCol, styles.tableCell]}
-                >
-                  {" "}
-                </Text>
               </View>
-            ))}
-
-            {/* Last row with special styling */}
-            <View style={styles.tableRow}>
-              <Text
-                style={[styles.tableCol, styles.tableColFirst, styles.lastRow]}
-              >
-                {indicators[6] ||
-                  "7. Non-verbal communication skills/ Behavioural skills (motor skills, hand-eye coordination, gross body movements, finely coordinated body movements speech behaviours)"}
-              </Text>
-              {[...Array(9)].map((_, i) => (
-                <Text
-                  key={i}
-                  style={[styles.tableCol, styles.tableCell, styles.lastRow]}
-                >
-                  {" "}
-                </Text>
-              ))}
-              <Text
-                style={[
-                  styles.tableCol,
-                  styles.lastCol,
-                  styles.tableCell,
-                  styles.lastRow,
-                ]}
-              >
-                {" "}
-              </Text>
-            </View>
+            )}
           </View>
           <View
             style={{

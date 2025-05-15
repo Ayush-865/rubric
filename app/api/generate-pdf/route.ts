@@ -60,6 +60,30 @@ export async function GET(request: NextRequest) {
       studentId: student._id,
     });
 
+    // Process the marks data to ensure it's in the correct format
+    let processedExperiments: Record<string, any> = {};
+    let experimentTotals: Record<string, any> = {};
+    
+    if (marks && marks.experiments) {
+      // Convert Map to regular object if needed
+      const experiments = marks.experiments instanceof Map 
+        ? Object.fromEntries(marks.experiments) 
+        : marks.experiments;
+      
+      // Process each experiment
+      for (const [expKey, indicators] of Object.entries(experiments)) {
+        // Convert nested Map to object if needed
+        processedExperiments[expKey] = indicators instanceof Map 
+          ? Object.fromEntries(indicators) 
+          : indicators;
+      }
+      
+      // Process experiment totals
+      experimentTotals = marks.experimentTotals instanceof Map
+        ? Object.fromEntries(marks.experimentTotals)
+        : marks.experimentTotals || {};
+    }
+
     // Get all raw data without processing it
     return NextResponse.json({
       success: true,
@@ -85,9 +109,8 @@ export async function GET(request: NextRequest) {
         },
         marks: marks
           ? {
-              rawData: marks, // Include the full marks document
-              experiments: marks.experiments || {},
-              experimentTotals: marks.experimentTotals || {},
+              experiments: processedExperiments,
+              experimentTotals: experimentTotals,
               totalMarks: marks.totalMarks || null,
             }
           : null,
